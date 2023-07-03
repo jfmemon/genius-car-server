@@ -46,18 +46,18 @@ async function run() {
         app.get('/orders', async (req, res) => {
             let query = {};
 
-            if(req.query.email) {
+            if (req.query.email) {
                 query = {
                     email: req.query.email,
                 }
             }
-            
+
             const cursor = ordersCollection.find(query);
             const orders = await cursor.toArray();
             res.send(orders);
         })
 
-        
+
         // client site theke data anbe and POST API create korbe
         app.post('/orders', async (req, res) => {
             const orders = req.body;
@@ -65,10 +65,25 @@ async function run() {
             res.send(result);
         })
 
+        // delete order from order list of db and selected order
         app.delete('/orders/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const result = await ordersCollection.deleteOne(query);
+            res.send(result);
+        })
+
+        // update order approval status
+        app.patch('/orders/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const status = req.body.status;
+            const updateOrder = {
+                $set: {
+                    status: status
+                }
+            }
+            const result = await ordersCollection.updateOne(query, updateOrder);
             res.send(result);
         })
     }
