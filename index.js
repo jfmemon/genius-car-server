@@ -20,15 +20,30 @@ const client = new MongoClient(uri, {
     }
 });
 
+const verifyJWT = (req, res, next) => {
+    const authHeader = req.body.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorized access' })
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decode) {
+        if (err) {
+            return res.status(403).send({ message: 'unauthorized access' })
+        }
+        req.decode = decode;
+        next();
+    })
+}
+
 async function run() {
     try {
         const serviceCollection = client.db('geniusCar').collection('services');
         const ordersCollection = client.db('geniusCar').collection('orders');
 
-        app.post('/jwt', (req, res) => {
+        app.post('/jwt',verifyJWT, (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
-            res.send({token});
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+            res.send({ token });
         })
 
         // db theke data(all) read korbe and api create korbe
@@ -49,7 +64,13 @@ async function run() {
         })
 
 
-        app.get('/orders', async (req, res) => {
+        app.get('/orders', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            if (decoded.email !== req.query.email) {
+                res.status(403).send({ message: 'unauthorized access' })
+            }
+
+
             let query = {};
 
             if (req.query.email) {
@@ -72,7 +93,7 @@ async function run() {
         })
 
         // delete order from order list of db and selected order
-        app.delete('/orders/:id', async (req, res) => {
+        app.delete('/orders/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await ordersCollection.deleteOne(query);
@@ -80,7 +101,7 @@ async function run() {
         })
 
         // update order approval status
-        app.patch('/orders/:id', async (req, res) => {
+        app.patch('/orders/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const status = req.body.status;
